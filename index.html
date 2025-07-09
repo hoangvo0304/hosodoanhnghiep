@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist Hồ Sơ Công Ty</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.currentUserId = null;
+        // QUAN TRỌNG: Để triển khai lên GitHub Pages, bạn PHẢI thay thế 'your-firebase-project-id-or-unique-app-id'
+        // bằng Project ID thực tế của dự án Firebase của bạn hoặc một mã định danh duy nhất cho ứng dụng của bạn.
+        window.appId = 'hosodoanhnghiep-b4555'; 
+
+        window.doc = doc; // Make doc globally accessible
+        window.setDoc = setDoc; // Make setDoc globally accessible
+
+        async function initializeFirebase(elements) { // Pass elements here
+            try {
+                // QUAN TRỌNG: Để triển khai lên GitHub Pages, bạn PHẢI thay thế các giá trị giữ chỗ bên dưới
+                // bằng cấu hình dự án Firebase thực tế của bạn.
+                // Truy cập Firebase Console -> Project settings -> General -> Your apps -> Firebase SDK snippet -> Config
+                const firebaseConfig = {
+                    apiKey: "AIzaSyDqqFeFGyjma0ba1uftWFhD-zfHhXQfNgs",
+                    authDomain: "hosodoanhnghiep-b4555.firebaseapp.com",
+                    projectId: "hosodoanhnghiep-b4555",
+                    storageBucket: "hosodoanhnghiep-b4555.firebasestorage.app",
+                    messagingSenderId: "311645595961",
+                    appId: "1:311645595961:web:8bf855c35424901770a0e8",
+                    // measurementId: "G-LV5PVRQ4KW"
+                };
+
+                window.firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.firebaseApp);
+                window.auth = getAuth(window.firebaseApp);
+
+                try {
+                    // Đối với GitHub Pages, chúng ta luôn đăng nhập ẩn danh vì __initial_auth_token chỉ dành riêng cho Canvas.
+                    await signInAnonymously(window.auth);
+                } catch (authError) {
+                    console.error("Lỗi xác thực Firebase:", authError);
+                    // Thông báo lỗi rõ ràng hơn để hướng dẫn người dùng
+                    elements.loadingMessage.textContent = `Lỗi xác thực: ${authError.message}. Vui lòng kiểm tra đã bật phương thức 'Anonymous' (Ẩn danh) trong Firebase Authentication > Sign-in method.`;
+                    return; // Dừng việc khởi tạo nếu xác thực thất bại
+                }
+
+                onAuthStateChanged(window.auth, (user) => {
+                    if (user) {
+                        window.currentUserId = user.uid;
+                        // elements.userIdDisplay.textContent = `ID của bạn: ${window.currentUserId}`; // Dòng này đã bị ẩn theo yêu cầu
+                        window.loadChecklist(elements); // Pass elements to loadChecklist
+                    } else {
+                        console.log("No user signed in.");
+                        elements.loadingMessage.textContent = 'Đang chờ xác thực người dùng...';
+                    }
+                });
+            } catch (error) {
+                console.error("Lỗi khởi tạo Firebase:", error);
+                elements.loadingMessage.textContent = `Lỗi khởi tạo ứng dụng: ${error.message}`;
+            }
+        }
+
+        window.initializeFirebase = initializeFirebase; // Expose to global scope
+
+        // Make loadChecklist globally accessible
+        window.loadChecklist = function(elements) { // Accept elements as parameter
+            if (!window.db || !window.currentUserId) {
+                return;
+            }
+
+            const docRef = window.doc(window.db, `artifacts/${window.appId}/public/data/customerChecklists`, window.currentUserId);
+            onSnapshot(docRef, (docSnap) => {
+                elements.loadingMessage.classList.add('hidden');
+                elements.progressSection.classList.remove('hidden');
+                elements.checklistSections.classList.remove('hidden');
+                elements.actionButtons.classList.remove('hidden');
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.items) {
+                        elements.checkboxes.forEach(checkbox => {
+                            const itemId = checkbox.closest('.checklist-item').dataset.itemId;
+                            checkbox.checked = data.items[itemId] || false;
+                        });
+                    }
+                    elements.notesTextarea.value = data.notes || '';
+                    elements.updateProgress(); // Call updateProgress from elements
+                } else {
+                    console.log("Chưa có dữ liệu checklist cho người dùng này.");
+                    elements.updateProgress(); // Initialize progress even if no data
+                }
+            }, (error) => {
+                console.error("Lỗi khi tải checklist:", error);
+                elements.loadingMessage.textContent = `Lỗi khi tải: ${error.message}`;
+            });
+        };
+    </script>
+
+    <!-- Open Graph Meta Tags for rich link previews -->
+    <meta property="og:title" content="Checklist Hồ Sơ Công Ty">
+    <meta property="og:description" content="Ứng dụng checklist tương tác giúp theo dõi tiến độ chuẩn bị hồ sơ công ty.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hoangvo0304.github.io/hosodoanhnghiep/"> <!-- Cập nhật URL này với đường link GitHub Pages của bạn -->
+    <meta property="og:image" content="https://placehold.co/1200x630/E0F2F7/000?text=Checklist+Ho+So+Cong+Ty"> <!-- Hình ảnh đại diện cho bản xem trước -->
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <!-- End Open Graph Meta Tags -->
+
+    <!-- Chosen Palette: Soothing Sage (Background: bg-slate-50, Text: text-slate-800, Accent: bg-teal-500, Cards: bg-white) -->
+    <!-- Application Structure Plan: A dashboard-like single-page application with a prominent header displaying user ID and overall progress. The main content area is structured into logical, collapsible sections for different document categories, improving navigability and reducing visual clutter. A dedicated large textarea for notes is placed at the bottom. A "Save" button persists the state. This structure prioritizes clarity, ease of interaction, and the ability for both the customer and seller to quickly grasp the status. -->
+    <!-- Visualization & Content Choices:
+    - Report Info: Checklist Items -> Goal: Track completion -> Viz: Interactive list with custom checkboxes -> Interaction: User clicks to check/uncheck, triggering a visual state change (strikethrough) and updating a progress bar. -> Justification: Standard, intuitive, and visually clear for tracking. -> Library/Method: HTML, Tailwind CSS, Vanilla JS, Firestore for persistence.
+    - Report Info: Overall Progress -> Goal: Provide summary & motivation -> Viz: Dynamic Progress Bar and text -> Interaction: Automatically updates on checkbox clicks. -> Justification: Offers a quick, high-level view of completion, enhancing user experience. -> Library/Method: HTML, Tailwind CSS, Vanilla JS.
+    - Report Info: Additional Notes -> Goal: Allow free-form input -> Viz: Large Textarea -> Interaction: User types text, which is saved with the checklist state. -> Justification: Provides flexibility for unique client requirements. -> Library/Method: HTML, Tailwind CSS, Vanilla JS, Firestore for persistence.
+    - Report Info: Data Persistence -> Goal: Save and retrieve checklist state -> Viz: Implicit (data stored in backend) -> Interaction: "Lưu lại" button triggers save; app loads previous state on access. -> Justification: Essential for multi-user scenario (customer saves, seller views). -> Library/Method: Firebase Firestore.
+    CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+        }
+        .checklist-item-label input:checked ~ span {
+            text-decoration: line-through;
+            color: #64748b; /* slate-500 */
+        }
+        .checklist-item-label .custom-checkbox {
+            transition: all 0.2s ease-in-out;
+        }
+        .checklist-item-label input:checked ~ .custom-checkbox {
+            background-color: #14b8a6; /* teal-500 */
+            border-color: #0f766e; /* teal-700 */
+        }
+        .checklist-item-label input:checked ~ .custom-checkbox svg {
+            transform: scale(1);
+        }
+        .custom-checkbox svg {
+            transform: scale(0);
+        }
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.expanded {
+            max-height: 1000px; /* Large enough to contain content */
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 flex items-center justify-center min-h-screen p-4">
+
+    <main class="w-full max-w-3xl bg-white rounded-2xl shadow-lg p-6 md:p-8 space-y-8">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-teal-600">Checklist Hồ Sơ Công Ty</h1>
+            <p class="mt-2 text-slate-500">Kính gửi Quý khách hàng, vui lòng chuẩn bị các giấy tờ dưới đây và đánh dấu vào các mục đã hoàn thành.</p>
+            <!-- Dòng ID người dùng đã được ẩn hoàn toàn -->
+        </div>
+
+        <!-- Loading Message -->
+        <div id="loading-message" class="text-center text-slate-500">Đang tải ứng dụng...</div>
+
+        <!-- Progress Section -->
+        <div id="progress-section" class="space-y-2 hidden">
+            <div class="flex justify-between items-center font-medium">
+                <span class="text-slate-600">Tiến độ</span>
+                <span id="progress-text" class="text-teal-600">0/0 mục</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-2.5">
+                <div id="progress-bar" class="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Checklist Sections -->
+        <div id="checklist-sections" class="space-y-6 hidden">
+            <!-- Section 1: Legal & Company Documents -->
+            <div class="p-5 border border-slate-200 rounded-xl">
+                <div class="collapsible-header flex justify-between items-center text-xl font-bold text-slate-700 mb-2">
+                    <span>I. Thông tin pháp lý & Hồ sơ công ty</span>
+                    <span class="toggle-icon text-slate-500 text-2xl">&#9660;</span>
+                </div>
+                <div class="collapsible-content expanded">
+                    <p class="text-sm text-slate-500 mb-4">Đây là các giấy tờ cơ bản để xác minh danh tính và tình trạng pháp lý của công ty.</p>
+                    <ul class="space-y-3">
+                        <li class="checklist-item" data-item-id="giayPhepKinhDoanh">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Giấy phép kinh doanh</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="cccdNguoiDaiDien">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">CCCD người đại diện (thành viên nếu có)</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="dieuLeCongTy">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Điều lệ công ty</span>
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 2: Financial & Tax Documents -->
+            <div class="p-5 border border-slate-200 rounded-xl">
+                <div class="collapsible-header flex justify-between items-center text-xl font-bold text-slate-700 mb-2">
+                    <span>II. Hồ sơ tài chính & Thuế</span>
+                    <span class="toggle-icon text-slate-500 text-2xl">&#9660;</span>
+                </div>
+                <div class="collapsible-content expanded">
+                    <p class="text-sm text-slate-500 mb-4">Các tài liệu này cung cấp cái nhìn tổng quan về tình hình tài chính và tuân thủ thuế của công ty.</p>
+                    <ul class="space-y-3">
+                        <li class="checklist-item" data-item-id="bctcThue20242023">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">BCTC thuế năm 2024 và 2023</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="toKhaiQuyetToanTNDN2024">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Tờ khai quyết toán thuế TNDN 2024</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="toKhaiVATQuy12342024">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Tờ khai VAT quý 1,2,3,4 năm 2024</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="toKhaiVATCacQuy2025">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Tờ khai VAT các quý đã quyết toán trong năm 2025</span>
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 3: Transaction Documents -->
+            <div class="p-5 border border-slate-200 rounded-xl">
+                <div class="collapsible-header flex justify-between items-center text-xl font-bold text-slate-700 mb-2">
+                    <span>III. Hồ sơ giao dịch</span>
+                    <span class="toggle-icon text-slate-500 text-2xl">&#9660;</span>
+                </div>
+                <div class="collapsible-content expanded">
+                    <p class="text-sm text-slate-500 mb-4">Các tài liệu liên quan đến hoạt động mua bán và giao dịch của công ty.</p>
+                    <ul class="space-y-3">
+                        <li class="checklist-item" data-item-id="hopDongDauVao">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">3 Hợp đồng đầu vào</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="hoaDonVATDauVao">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">3 Hóa đơn VAT đầu vào</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="hopDongDauRa">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">3 Hợp đồng đầu ra</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="hoaDonVATDauRa">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">3 Hóa đơn VAT đầu ra</span>
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 4: Business Premises Documents -->
+            <div class="p-5 border border-slate-200 rounded-xl">
+                <div class="collapsible-header flex justify-between items-center text-xl font-bold text-slate-700 mb-2">
+                    <span>IV. Hồ sơ mặt bằng kinh doanh</span>
+                    <span class="toggle-icon text-slate-500 text-2xl">&#9660;</span>
+                </div>
+                <div class="collapsible-content expanded">
+                    <p class="text-sm text-slate-500 mb-4">Các tài liệu chứng minh quyền sử dụng mặt bằng kinh doanh của công ty.</p>
+                    <ul class="space-y-3">
+                        <li class="checklist-item" data-item-id="saoKeTaiKhoan12Thang">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Sao kê tài khoản công ty 12 tháng gần nhất</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="chiTietCongNo3Thang">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Chi tiết công nợ (mua vào, bán ra) 3 tháng gần nhất</span>
+                            </label>
+                        </li>
+                        <li class="checklist-item" data-item-id="chungTuMatBang">
+                            <label class="checklist-item-label flex items-center cursor-pointer">
+                                <input type="checkbox" class="hidden">
+                                <div class="custom-checkbox w-6 h-6 border-2 border-slate-300 rounded-md flex-shrink-0 mr-3 grid place-items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <span class="font-medium">Chứng từ chứng minh mặt bằng kinh doanh (hợp đồng thuê hoặc hình sổ hồng nếu là sở hữu)</span>
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Notes Section -->
+            <div class="p-5 border border-slate-200 rounded-xl">
+                <h2 class="text-xl font-bold mb-4 text-slate-700">Ghi chú thêm</h2>
+                <p class="text-sm text-slate-500 mb-4">Quý khách có thể nhập các ghi chú hoặc hồ sơ bổ sung tại đây.</p>
+                <textarea id="notes-textarea" class="w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y h-32" placeholder="Nhập ghi chú của bạn tại đây..."></textarea>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="action-buttons" class="flex justify-end gap-4 hidden">
+            <button id="save-button" class="bg-teal-500 text-white font-semibold px-6 py-3 rounded-lg shadow-md hover:bg-teal-600 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">
+                Lưu lại
+            </button>
+        </div>
+
+        <!-- Message Box for Alerts/Confirmations -->
+        <div id="message-box" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full text-center space-y-4">
+                <p id="message-text" class="text-slate-700 text-lg"></p>
+                <button id="message-ok-button" class="bg-teal-500 text-white font-semibold px-5 py-2 rounded-lg hover:bg-teal-600 transition-colors">
+                    OK
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script type="module">
+        // Khai báo các biến trong phạm vi DOMContentLoaded hoặc truyền chúng dưới dạng đối số
+        let loadingMessage;
+        let progressSection;
+        let checklistSections;
+        let actionButtons;
+        let checkboxes;
+        let progressBar;
+        let progressText;
+        let notesTextarea;
+        let saveButton;
+        let totalItems;
+
+        let messageBox;
+        let messageText;
+        let messageOkButton;
+
+        function showMessage(message) {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+        }
+
+        // Đặt updateProgress có thể truy cập toàn cục và truyền các phần tử
+        window.updateProgress = function(checkboxes, progressBar, progressText, totalItems) {
+            const checkedItems = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+            const percentage = totalItems > 0 ? (checkedItems / totalItems) * 100 : 0;
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${checkedItems}/${totalItems} mục`;
+        };
+
+        async function saveChecklist() {
+            if (!window.db || !window.currentUserId) {
+                showMessage('Lỗi: Không thể lưu. Người dùng chưa được xác thực hoặc cơ sở dữ liệu chưa sẵn sàng.');
+                return;
+            }
+
+            const checklistState = {};
+            checkboxes.forEach(checkbox => {
+                const itemId = checkbox.closest('.checklist-item').dataset.itemId;
+                checklistState[itemId] = checkbox.checked;
+            });
+
+            const notesContent = notesTextarea.value;
+
+            try {
+                // Sử dụng window.doc và window.setDoc để truy cập các hàm có sẵn toàn cục
+                const docRef = window.doc(window.db, `artifacts/${window.appId}/public/data/customerChecklists`, window.currentUserId);
+                await window.setDoc(docRef, {
+                    items: checklistState,
+                    notes: notesContent,
+                    lastUpdated: new Date().toISOString()
+                });
+                showMessage('Đã lưu thành công!');
+            } catch (error) {
+                console.error("Lỗi khi lưu checklist:", error);
+                showMessage(`Lỗi khi lưu: ${error.message}`);
+            }
+        }
+
+        // Khởi tạo Firebase khi DOM đã sẵn sàng
+        document.addEventListener('DOMContentLoaded', () => {
+            // Gán các phần tử DOM vào các biến tại đây
+            loadingMessage = document.getElementById('loading-message');
+            progressSection = document.getElementById('progress-section');
+            checklistSections = document.getElementById('checklist-sections');
+            actionButtons = document.getElementById('action-buttons');
+            checkboxes = document.querySelectorAll('.checklist-item input[type="checkbox"]');
+            progressBar = document.getElementById('progress-bar');
+            progressText = document.getElementById('progress-text');
+            notesTextarea = document.getElementById('notes-textarea');
+            saveButton = document.getElementById('save-button');
+            totalItems = checkboxes.length;
+
+            messageBox = document.getElementById('message-box');
+            messageText = document.getElementById('message-text');
+            messageOkButton = document.getElementById('message-ok-button');
+
+            messageOkButton.addEventListener('click', () => {
+                messageBox.classList.add('hidden');
+            });
+
+            // Truyền các phần tử để khởi tạo Firebase
+            window.initializeFirebase({
+                loadingMessage, progressSection, checklistSections, actionButtons,
+                checkboxes, progressBar, progressText, notesTextarea, saveButton,
+                updateProgress: () => window.updateProgress(checkboxes, progressBar, progressText, totalItems) // Truyền một hàm để cập nhật tiến độ
+            });
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => window.updateProgress(checkboxes, progressBar, progressText, totalItems));
+            });
+
+            saveButton.addEventListener('click', saveChecklist);
+
+            // Các phần có thể thu gọn
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const content = header.nextElementSibling;
+                    const icon = header.querySelector('.toggle-icon');
+                    if (content.classList.contains('expanded')) {
+                        content.classList.remove('expanded');
+                        icon.innerHTML = '&#9660;'; // Mũi tên xuống
+                    } else {
+                        content.classList.add('expanded');
+                        icon.innerHTML = '&#9650;'; // Mũi tên lên
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
